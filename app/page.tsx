@@ -1,101 +1,152 @@
-import Image from "next/image";
+'use client'
+
+import { useState, useRef } from 'react'
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { Camera, Upload } from 'lucide-react'
+import CameraComponent from '../components/Camera'
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [showCamera, setShowCamera] = useState(false)
+  const [capturedImage, setCapturedImage] = useState<string | null>(null)
+  const [extractedText, setExtractedText] = useState<string>('')
+  const [translatedText, setTranslatedText] = useState<string>('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+  const processImage = async (imageSrc: string) => {
+    setIsProcessing(true)
+    setError(null)
+    
+    try {
+      const response = await fetch('/api/translate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ image: imageSrc }),
+      })
+
+      const data = await response.json()
+      
+      if (!data.success) {
+        throw new Error(data.error)
+      }
+
+      setExtractedText(data.extractedText)
+      setTranslatedText(data.translatedText)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to process image')
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  const handleCapture = (imageSrc: string) => {
+    setCapturedImage(imageSrc)
+    setShowCamera(false)
+    processImage(imageSrc)
+  }
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (file) {
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        const imageSrc = reader.result as string
+        setCapturedImage(imageSrc)
+        processImage(imageSrc)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  return (
+    <main className="container mx-auto p-4 max-w-md min-h-screen">
+      <h1 className="text-3xl font-bold mb-6 text-center text-orange-600">
+        🍽️ 美食翻译 Yummy Translator 🍜
+      </h1>
+
+      <Card className="border-orange-300">
+        <CardContent className="p-6">
+          {!showCamera && !capturedImage && (
+            <div className="flex flex-col gap-4">
+              <Button 
+                onClick={() => setShowCamera(true)}
+                className="bg-orange-500 hover:bg-orange-600"
+              >
+                <Camera className="w-4 h-4 mr-2" />
+                拍照 Take Photo
+              </Button>
+              <Button 
+                variant="outline" 
+                className="border-orange-500 text-orange-500 hover:bg-orange-50"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                上传图片 Upload Image
+              </Button>
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                ref={fileInputRef}
+                onChange={handleFileUpload}
+              />
+            </div>
+          )}
+
+          {showCamera && (
+            <CameraComponent onCapture={handleCapture} />
+          )}
+
+          {capturedImage && (
+            <div className="space-y-4">
+              <img 
+                src={capturedImage} 
+                alt="Captured menu" 
+                className="w-full rounded-lg border-2 border-orange-300" 
+              />
+              <Button 
+                onClick={() => {
+                  setCapturedImage(null)
+                  setExtractedText('')
+                  setTranslatedText('')
+                  setError(null)
+                }}
+                variant="outline"
+                className="w-full border-orange-500 text-orange-500 hover:bg-orange-50"
+              >
+                重新拍照 Take Another Photo
+              </Button>
+              
+              {isProcessing && (
+                <div className="mt-4 p-4 bg-orange-50 rounded-lg">
+                  <div className="flex items-center justify-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500" />
+                    <span className="ml-2">Processing image...</span>
+                  </div>
+                </div>
+              )}
+
+              {error && (
+                <div className="mt-4 p-4 bg-red-50 rounded-lg text-red-600">
+                  {error}
+                </div>
+              )}
+
+              {translatedText && (
+                <div className="mt-4 p-4 bg-orange-50 rounded-lg">
+                  <h3 className="font-semibold mb-2">翻译 Translation:</h3>
+                  <p className="whitespace-pre-wrap">{translatedText}</p>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </main>
+  )
 }
+
