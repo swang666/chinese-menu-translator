@@ -13,7 +13,7 @@ import { MenuItem } from '@/app/api/parse-menu/route'
 export default function Home() {
   const [capturedImage, setCapturedImage] = useState<string | null>(null)
   const [compressedDisplayImage, setCompressedDisplayImage] = useState<string | null>(null)
-  const [extractedText, setExtractedText] = useState<string>('')
+  const [, setExtractedText] = useState<string>('')
   const [menuItems, setMenuItems] = useState<MenuItem[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isProcessing, setIsProcessing] = useState(false)
