@@ -8,6 +8,7 @@ import { Camera, Upload } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import CameraComponent from '../components/Camera'
 import { performOCR } from '@/utils/ocr'
+import { compressImage } from '@/utils/imageProcessing'
 
 interface MenuItem {
   name: string;
@@ -27,6 +28,7 @@ export default function Home() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [processingStep, setProcessingStep] = useState<'ocr' | 'translation' | 'parsing' | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [compressedDisplayImage, setCompressedDisplayImage] = useState<string | null>(null)
 
   const processImage = async (imageSrc: string) => {
     setIsProcessing(true)
@@ -34,33 +36,22 @@ export default function Home() {
     setError(null)
     
     try {
-      // Perform OCR locally
-      const extractedText = await performOCR(imageSrc)
+      // Compress image before processing
+      console.log('Compressing image...')
+      const compressedImage = await compressImage(imageSrc)
+      console.log('Image compressed')
+      
+      // Perform OCR on compressed image
+      const extractedText = await performOCR(compressedImage)
       setExtractedText(extractedText)
       
-      // Get translation
-      setProcessingStep('translation')
-      const translationResponse = await fetch('/api/translate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: extractedText }),
-      })
-
-      const translationData = await translationResponse.json()
-      
-      if (!translationData.success) {
-        throw new Error(translationData.error)
-      }
-
-      setTranslatedText(translationData.translatedText)
-      // Parse menu items
+      // Parse menu and translate
       setProcessingStep('parsing')
       const parseResponse = await fetch('/api/parse-menu', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          englishText: extractedText,
-          chineseText: translationData.translatedText 
+          englishText: extractedText
         }),
       })
 
@@ -80,9 +71,12 @@ export default function Home() {
     }
   }
 
-  const handleCapture = (imageSrc: string) => {
+  const handleCapture = async (imageSrc: string) => {
     setCapturedImage(imageSrc)
     setShowCamera(false)
+    // Compress image for display
+    const compressed = await compressImage(imageSrc)
+    setCompressedDisplayImage(compressed)
     processImage(imageSrc)
   }
 
@@ -90,9 +84,12 @@ export default function Home() {
     const file = event.target.files?.[0]
     if (file) {
       const reader = new FileReader()
-      reader.onloadend = () => {
+      reader.onloadend = async () => {
         const imageSrc = reader.result as string
         setCapturedImage(imageSrc)
+        // Compress image for display
+        const compressed = await compressImage(imageSrc)
+        setCompressedDisplayImage(compressed)
         processImage(imageSrc)
       }
       reader.readAsDataURL(file)
@@ -157,7 +154,7 @@ export default function Home() {
                 <motion.img 
                   initial={{ scale: 0.95 }}
                   animate={{ scale: 1 }}
-                  src={capturedImage} 
+                  src={compressedDisplayImage || capturedImage} 
                   alt="Captured menu" 
                   className="w-full rounded-lg border-2 border-orange-300" 
                 />
