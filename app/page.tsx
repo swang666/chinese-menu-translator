@@ -4,31 +4,21 @@ import { useState, useRef } from 'react'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Camera, Upload } from 'lucide-react'
+import { Camera } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import CameraComponent from '../components/Camera'
 import { performOCR } from '@/utils/ocr'
 import { compressImage } from '@/utils/imageProcessing'
-
-interface MenuItem {
-  name: string;
-  nameZh: string;
-  price?: string;
-  descriptionEn?: string;
-  descriptionZh?: string;
-}
+import { MenuItem } from '@/app/api/parse-menu/route'
 
 export default function Home() {
-  const [showCamera, setShowCamera] = useState(false)
   const [capturedImage, setCapturedImage] = useState<string | null>(null)
+  const [compressedDisplayImage, setCompressedDisplayImage] = useState<string | null>(null)
   const [extractedText, setExtractedText] = useState<string>('')
-  const [translatedText, setTranslatedText] = useState<string>('')
   const [menuItems, setMenuItems] = useState<MenuItem[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isProcessing, setIsProcessing] = useState(false)
-  const [processingStep, setProcessingStep] = useState<'ocr' | 'translation' | 'parsing' | null>(null)
+  const [processingStep, setProcessingStep] = useState<'ocr' | 'parsing' | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [compressedDisplayImage, setCompressedDisplayImage] = useState<string | null>(null)
 
   const processImage = async (imageSrc: string) => {
     setIsProcessing(true)
@@ -71,15 +61,6 @@ export default function Home() {
     }
   }
 
-  const handleCapture = async (imageSrc: string) => {
-    setCapturedImage(imageSrc)
-    setShowCamera(false)
-    // Compress image for display
-    const compressed = await compressImage(imageSrc)
-    setCompressedDisplayImage(compressed)
-    processImage(imageSrc)
-  }
-
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
@@ -101,15 +82,26 @@ export default function Home() {
       <motion.h1 
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="text-3xl font-bold mb-6 text-center text-orange-600"
+        className="text-3xl font-bold mb-2 text-center text-orange-600"
       >
-        🍽️ 美食翻译 Yummy Translator 🍜
+        🍽️ 吃在美国 🍜
       </motion.h1>
+      
+      <motion.p
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="text-center mb-6 text-gray-600"
+      >
+        <span className="font-noto-sans-sc block mb-1">
+          拍摄菜单照片，即可获得中文翻译
+        </span>
+      </motion.p>
 
       <Card className="border-orange-300">
         <CardContent className="p-6">
           <AnimatePresence mode="wait">
-            {!showCamera && !capturedImage && (
+            {!capturedImage && (
               <motion.div 
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -135,16 +127,6 @@ export default function Home() {
               </motion.div>
             )}
 
-            {showCamera && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-              >
-                <CameraComponent onCapture={handleCapture} />
-              </motion.div>
-            )}
-
             {capturedImage && (
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
@@ -162,7 +144,6 @@ export default function Home() {
                   onClick={() => {
                     setCapturedImage(null)
                     setExtractedText('')
-                    setTranslatedText('')
                     setMenuItems([])
                     setError(null)
                   }}
@@ -182,7 +163,6 @@ export default function Home() {
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500" />
                       <span className="ml-2">
                         {processingStep === 'ocr' && '正在识别文字 Detecting text...'}
-                        {processingStep === 'translation' && '正在翻译 Translating...'}
                         {processingStep === 'parsing' && '正在分析菜单 Analyzing menu...'}
                       </span>
                     </div>
