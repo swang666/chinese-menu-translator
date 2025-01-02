@@ -9,14 +9,23 @@ import { motion, AnimatePresence } from 'framer-motion'
 import CameraComponent from '../components/Camera'
 import { performOCR } from '@/utils/ocr'
 
+interface MenuItem {
+  name: string;
+  nameZh: string;
+  price?: string;
+  descriptionEn?: string;
+  descriptionZh?: string;
+}
+
 export default function Home() {
   const [showCamera, setShowCamera] = useState(false)
   const [capturedImage, setCapturedImage] = useState<string | null>(null)
   const [extractedText, setExtractedText] = useState<string>('')
   const [translatedText, setTranslatedText] = useState<string>('')
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isProcessing, setIsProcessing] = useState(false)
-  const [processingStep, setProcessingStep] = useState<'ocr' | 'translation' | null>(null)
+  const [processingStep, setProcessingStep] = useState<'ocr' | 'translation' | 'parsing' | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const processImage = async (imageSrc: string) => {
@@ -29,22 +38,40 @@ export default function Home() {
       const extractedText = await performOCR(imageSrc)
       setExtractedText(extractedText)
       
-      // Send only the extracted text for translation
-      const response = await fetch('/api/translate', {
+      // Get translation
+      setProcessingStep('translation')
+      const translationResponse = await fetch('/api/translate', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: extractedText }),
       })
 
-      const data = await response.json()
+      const translationData = await translationResponse.json()
       
-      if (!data.success) {
-        throw new Error(data.error)
+      if (!translationData.success) {
+        throw new Error(translationData.error)
       }
 
-      setTranslatedText(data.translatedText)
+      setTranslatedText(translationData.translatedText)
+      // Parse menu items
+      setProcessingStep('parsing')
+      const parseResponse = await fetch('/api/parse-menu', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          englishText: extractedText,
+          chineseText: translationData.translatedText 
+        }),
+      })
+
+      const parseData = await parseResponse.json()
+      
+      if (!parseData.success) {
+        throw new Error(parseData.error)
+      }
+
+      setMenuItems(parseData.menuItems)
+
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to process image')
     } finally {
@@ -94,19 +121,12 @@ export default function Home() {
                 className="flex flex-col gap-4"
               >
                 <Button 
-                  onClick={() => setShowCamera(true)}
-                  className="bg-orange-500 hover:bg-orange-600"
-                >
-                  <Camera className="w-4 h-4 mr-2" />
-                  拍照 Take Photo
-                </Button>
-                <Button 
                   variant="outline" 
                   className="border-orange-500 text-orange-500 hover:bg-orange-50"
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  <Upload className="w-4 h-4 mr-2" />
-                  上传图片 Upload Image
+                  <Camera className="w-4 h-4 mr-2" />
+                  拍照 Take Photo
                 </Button>
                 <input
                   type="file"
@@ -146,6 +166,7 @@ export default function Home() {
                     setCapturedImage(null)
                     setExtractedText('')
                     setTranslatedText('')
+                    setMenuItems([])
                     setError(null)
                   }}
                   variant="outline"
@@ -163,9 +184,9 @@ export default function Home() {
                     <div className="flex items-center justify-center">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500" />
                       <span className="ml-2">
-                        {processingStep === 'ocr' 
-                          ? '正在识别文字 Detecting text...'
-                          : '正在翻译 Translating...'}
+                        {processingStep === 'ocr' && '正在识别文字 Detecting text...'}
+                        {processingStep === 'translation' && '正在翻译 Translating...'}
+                        {processingStep === 'parsing' && '正在分析菜单 Analyzing menu...'}
                       </span>
                     </div>
                   </motion.div>
@@ -181,7 +202,7 @@ export default function Home() {
                   </motion.div>
                 )}
 
-                {translatedText && (
+                {menuItems.length > 0 && (
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -190,25 +211,49 @@ export default function Home() {
                     <Card className="mt-6 border-orange-200 shadow-lg">
                       <CardHeader className="border-b border-orange-100 bg-orange-50/50">
                         <CardTitle className="text-xl font-semibold text-orange-800">
-                          翻译结果 Translation Results
+                          菜单项目 Menu Items
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="p-6">
-                        <ScrollArea className="h-[200px] rounded-md border border-orange-100 bg-white p-4">
-                          {extractedText.split('\n').map((line, index) => (
+                        <ScrollArea className="h-[400px] rounded-md border border-orange-100 bg-white p-4">
+                          {menuItems.map((item, index) => (
                             <motion.div
                               key={index}
                               initial={{ opacity: 0, y: 10 }}
                               animate={{ opacity: 1, y: 0 }}
                               transition={{ delay: 0.1 * index }}
-                              className="mb-4 last:mb-0"
+                              className="mb-6 last:mb-0"
                             >
-                              <p className="text-gray-700 font-mono">
-                                {line}
-                              </p>
-                              <p className="text-orange-600 font-noto-sans-sc mt-1 pl-4 border-l-2 border-orange-200">
-                                {translatedText.split('\n')[index]}
-                              </p>
+                              <div className="flex justify-between items-start">
+                                <div className="flex-1">
+                                  <h3 className="text-lg font-semibold text-gray-800">
+                                    {item.name}
+                                  </h3>
+                                  <p className="text-lg font-noto-sans-sc text-orange-600 mt-1">
+                                    {item.nameZh}
+                                  </p>
+                                  {(item.descriptionEn || item.descriptionZh) && (
+                                    <div className="mt-2 text-sm">
+                                      {item.descriptionEn && (
+                                        <p className="text-gray-600 italic">
+                                          {item.descriptionEn}
+                                        </p>
+                                      )}
+                                      {item.descriptionZh && (
+                                        <p className="font-noto-sans-sc text-gray-600 mt-1">
+                                          {item.descriptionZh}
+                                        </p>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                                {item.price && (
+                                  <span className="text-lg font-mono text-green-600 ml-4">
+                                    {item.price}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="mt-2 h-px bg-orange-100" />
                             </motion.div>
                           ))}
                         </ScrollArea>
