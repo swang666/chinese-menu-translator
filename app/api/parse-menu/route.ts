@@ -22,43 +22,37 @@ export async function POST(request: Request) {
                     Authorization: `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
                 },
                 body: JSON.stringify({
-                    inputs: `<s>[INST] You are a menu translator specializing in food items. Your task is to identify and translate food items from OCR text.
+                    inputs: `<s>[INST] Translate these menu items to Chinese. Return ONLY a JSON response.
 
-Rules:
-1. ONLY include items that are clearly food or beverages
-2. Skip any text that doesn't look like a menu item
-3. If you're unsure about an item, skip it
-4. Keep descriptions short and food-focused
-5. NO comments in the JSON
-6. NO placeholder text
-7. NO example items
+IMPORTANT RULES:
+1. DO NOT use any escape characters or backslashes in the text
+2. Use regular quotes (") for JSON, no special quotes
 
-Input text from OCR:
-${englishText}
-
-Return a JSON object in this exact format:
+Required JSON structure:
 {
   "items": [
     {
-      "name": "actual food name in English",
-      "nameZh": "中文菜名",
-      "price": "exact price if present",
-      "descriptionEn": "short food description",
-      "descriptionZh": "简短的食材和烹饪方法说明"
+      "name": "first dish name",
+      "nameZh": "第一道菜名",
+      "price": "$XX.XX if present",
+      "descriptionEn": "description if present",
+      "descriptionZh": "描述如果有的话，并且保留英文的标点符号"
+    },
+    {
+      "name": "second dish name",
+      "nameZh": "第二道菜名",
+      "price": "$XX.XX if present",
+      "descriptionEn": "description if present",
+      "descriptionZh": "描述如果有的话，并且保留英文的标点符号"
     }
   ]
 }
 
-Requirements:
-- Only real food items
-- Valid JSON format
-- No comments or placeholders
-- Chinese descriptions must only contain Chinese characters and punctuation
-- Prices must be in $X.XX format
-- Skip items if OCR text is unclear [/INST]</s>`,
+Menu text:
+${englishText}[/INST]</s>`,
                     parameters: {
                         max_new_tokens: 1024,
-                        temperature: 0.1,
+                        temperature: 0.05,
                         top_p: 0.95,
                         return_full_text: false
                     }
@@ -76,37 +70,49 @@ Requirements:
         // Clean and parse the response
         let menuItems;
         try {
-            const jsonStr = result[0].generated_text
+            let jsonStr = result[0].generated_text
                 .replace(/```json|```|kotlin|javascript|json/g, '')
-                .replace(/\/\/.+/g, '')
-                .replace(/\n\s*\n/g, '\n')
+                .replace(/\n+/g, ' ')
+                .replace(/\s+/g, ' ')
+                .replace(/\\n/g, '')
+                .replace(/\\\*/g, '*')           // Remove escaped asterisks
+                .replace(/\\"/g, '"')            // Remove escaped quotes
+                .replace(/\\/g, '')              // Remove any remaining backslashes
+                .replace(/[^\x20-\x7E\u4e00-\u9fff\s,.()+-:*]/g, '')
+                .replace(/"(\s*)"/, '""')
+                .replace(/"\s+/g, '"')
+                .replace(/\s+"/g, '"')
                 .trim();
+            
+            const start = jsonStr.indexOf('{');
+            const end = jsonStr.lastIndexOf('}') + 1;
+            jsonStr = jsonStr.slice(start, end);
             
             console.log('Cleaned JSON:', jsonStr)
             
-            const validJsonStr = jsonStr.substring(jsonStr.indexOf('{'));
+            const parsed = JSON.parse(jsonStr);
             
-            const parsed = JSON.parse(validJsonStr);
-            
-            // Validate the structure
             if (!parsed.items || !Array.isArray(parsed.items)) {
                 throw new Error('Invalid response format');
             }
             
-            // Additional validation of each item
-            menuItems = parsed.items.filter((item: MenuItem) => 
+            // Clean each item's text
+            menuItems = parsed.items.map((item: MenuItem) => ({
+                ...item,
+                nameZh: item.nameZh?.replace(/[^\u4e00-\u9fff\s，。]/g, '').trim(),
+                descriptionZh: item.descriptionZh?.replace(/[^\u4e00-\u9fff\s，。]/g, '').trim()
+            })).filter((item: MenuItem) => 
                 item.name && 
                 item.nameZh && 
                 typeof item.name === 'string' &&
-                typeof item.nameZh === 'string' &&
-                item.nameZh.match(/^[\u4e00-\u9fa5，。：；！？、]+$/) // Only Chinese characters and punctuation
+                typeof item.nameZh === 'string'
             );
 
             if (menuItems.length === 0) {
                 throw new Error('No valid menu items found');
             }
 
-            console.log('Parsed and validated items:', menuItems)
+            console.log('Parsed items:', menuItems)
         } catch (e) {
             console.error('Parse error:', e);
             throw new Error('Failed to parse menu items from LLM response');
