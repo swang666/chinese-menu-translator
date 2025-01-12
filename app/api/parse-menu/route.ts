@@ -14,7 +14,7 @@ export async function POST(request: Request) {
         console.log('Received text:', englishText)
 
         const response = await fetch(
-            "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1",
+            "https://api-inference.huggingface.co/models/01-ai/Yi-1.5-34B-Chat",
             {
                 method: "POST",
                 headers: {
@@ -22,41 +22,37 @@ export async function POST(request: Request) {
                     Authorization: `Bearer ${process.env.HUGGINGFACE_API_KEY}`,
                 },
                 body: JSON.stringify({
-                    inputs: `<s>[INST] Translate these menu items to Chinese. Return ONLY a JSON response.
-
-IMPORTANT RULES:
-1. DO NOT use any escape characters or backslashes in the text
-2. Use regular quotes (") for JSON, no special quotes
-
-Required JSON structure:
-{
-  "items": [
-    {
-      "name": "first dish name",
-      "nameZh": "第一道菜名",
-      "price": "$XX.XX if present",
-      "descriptionEn": "description if present",
-      "descriptionZh": "描述如果有的话，并且保留英文的标点符号"
-    },
-    {
-      "name": "second dish name",
-      "nameZh": "第二道菜名",
-      "price": "$XX.XX if present",
-      "descriptionEn": "description if present",
-      "descriptionZh": "描述如果有的话，并且保留英文的标点符号"
-    }
-  ]
-}
-
-Menu text:
-${englishText}[/INST]</s>`,
+                    inputs: `<|im_start|>system
+        You are a precise JSON generator that translates menu items from English to Chinese.
+        <|im_end|>
+        <|im_start|>user
+        Translate these menu items to Chinese. Return ONLY a JSON response.
+        
+        Required JSON structure:
+        {
+          "items": [
+            {
+              "name": "first dish name",
+              "nameZh": "第一道菜名",
+              "price": "$XX.XX if present",
+              "descriptionEn": "description if present",
+              "descriptionZh": "描述如果有的话，并且保留英文的标点符号"
+            }
+          ]
+        }
+        
+        Menu text:
+        ${englishText}
+        <|im_end|>
+        <|im_start|>assistant
+        `,
                     parameters: {
                         max_new_tokens: 1024,
                         temperature: 0.05,
                         top_p: 0.95,
                         return_full_text: false
                     }
-                }),
+                })
             }
         );
 

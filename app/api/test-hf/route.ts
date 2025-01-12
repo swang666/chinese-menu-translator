@@ -6,7 +6,7 @@ export async function GET() {
   // Test the API key with a simple request
   try {
     const response = await fetch(
-      "https://api-inference.huggingface.co/models/mistralai/Mixtral-8x7B-Instruct-v0.1",
+      "https://api-inference.huggingface.co/models/01-ai/Yi-1.5-34B-Chat",
       {
         method: "POST",
         headers: {
