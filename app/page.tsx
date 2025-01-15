@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Camera } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { performOCR } from '@/utils/ocr'
-import { compressImage } from '@/utils/imageProcessing'
+import { compressImage, getImageOrientation, rotateImage } from '@/utils/imageProcessing'
 import { MenuItem } from '@/app/api/parse-menu/route'
 
 export default function Home() {
@@ -66,7 +66,18 @@ export default function Home() {
     if (file) {
       const reader = new FileReader()
       reader.onloadend = async () => {
-        const imageSrc = reader.result as string
+        let imageSrc = reader.result as string
+        
+        // Get and apply correct orientation
+        try {
+          const orientation = await getImageOrientation(file)
+          if (orientation > 1) {
+            imageSrc = await rotateImage(imageSrc, orientation)
+          }
+        } catch (error) {
+          console.warn('Failed to process image orientation:', error)
+        }
+
         setCapturedImage(imageSrc)
         // Compress image for display
         const compressed = await compressImage(imageSrc)
