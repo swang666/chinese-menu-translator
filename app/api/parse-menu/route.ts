@@ -1,4 +1,55 @@
 import { NextResponse } from 'next/server'
+import { Redis } from '@upstash/redis'
+
+const redis = new Redis({
+    url: process.env.UPSTASH_REDIS_REST_URL!,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+})
+
+const HOURLY_LIMIT = 20;           // 20 requests per IP per hour
+const DAILY_TOTAL_LIMIT = 1000;    // 1000 total requests per day
+const HOUR_IN_SECONDS = 60 * 60;   // 1 hour in seconds
+const DAY_IN_SECONDS = 24 * 60 * 60; // 24 hours in seconds
+
+async function checkRateLimit(ip: string): Promise<{ allowed: boolean; error?: string }> {
+    const hourlyKey = `rate_limit:${ip}:hourly`;
+    const dailyTotalKey = `rate_limit:total:daily`;
+    
+    // Use pipeline to batch Redis operations
+    const pipeline = redis.pipeline();
+    
+    // Increment both counters
+    pipeline.incr(hourlyKey);
+    pipeline.incr(dailyTotalKey);
+    
+    const [hourlyCount, totalCount] = await pipeline.exec() as number[];
+    
+    // Set expiration for first request
+    if (hourlyCount === 1) {
+        await redis.expire(hourlyKey, HOUR_IN_SECONDS);
+    }
+    if (totalCount === 1) {
+        await redis.expire(dailyTotalKey, DAY_IN_SECONDS);
+    }
+    
+    // Check hourly IP limit
+    if (hourlyCount > HOURLY_LIMIT) {
+        return { 
+            allowed: false, 
+            error: `IP rate limit exceeded. Maximum ${HOURLY_LIMIT} requests per hour.` 
+        };
+    }
+    
+    // Check daily total limit
+    if (totalCount > DAILY_TOTAL_LIMIT) {
+        return { 
+            allowed: false, 
+            error: 'Daily API limit reached. Please try again tomorrow.' 
+        };
+    }
+    
+    return { allowed: true };
+}
 
 export interface MenuItem {
     name: string;
@@ -10,6 +61,22 @@ export interface MenuItem {
 
 export async function POST(request: Request) {
     try {
+        // Get IP address from request headers
+        const forwardedFor = request.headers.get('x-forwarded-for');
+        const ip = forwardedFor ? forwardedFor.split(',')[0] : 'unknown';
+
+        // Check rate limits
+        const { allowed, error } = await checkRateLimit(ip);
+        if (!allowed) {
+            return NextResponse.json(
+                { 
+                    success: false, 
+                    error: error 
+                },
+                { status: 429 }
+            );
+        }
+
         const { englishText } = await request.json()
         console.log('Received text:', englishText)
 
