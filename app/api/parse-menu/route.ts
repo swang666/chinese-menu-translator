@@ -6,7 +6,7 @@ const redis = new Redis({
     token: process.env.UPSTASH_REDIS_REST_TOKEN!,
 })
 
-const HOURLY_LIMIT = 20;           // 20 requests per IP per hour
+const HOURLY_LIMIT = 40;           // 20 requests per IP per hour
 const DAILY_TOTAL_LIMIT = 1000;    // 1000 total requests per day
 const HOUR_IN_SECONDS = 60 * 60;   // 1 hour in seconds
 const DAY_IN_SECONDS = 24 * 60 * 60; // 24 hours in seconds

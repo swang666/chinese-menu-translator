@@ -95,7 +95,7 @@ export default function Home() {
         animate={{ opacity: 1, y: 0 }}
         className="text-3xl font-bold mb-2 text-center text-orange-600"
       >
-        🍽️ 吃在美国 🍜
+        🍽️ 美食翻译小助手 🍜
       </motion.h1>
       
       <motion.p
@@ -217,9 +217,14 @@ export default function Home() {
                                   <h3 className="text-lg font-semibold text-gray-800">
                                     {item.name}
                                   </h3>
-                                  <p className="text-lg font-noto-sans-sc text-orange-600 mt-1">
+                                  <a 
+                                    href={`https://www.google.com/search?q=${encodeURIComponent(item.nameZh)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-lg font-noto-sans-sc text-orange-600 mt-1 hover:text-orange-700 hover:underline"
+                                  >
                                     {item.nameZh}
-                                  </p>
+                                  </a>
                                   {(item.descriptionEn || item.descriptionZh) && (
                                     <div className="mt-2 text-sm">
                                       {item.descriptionEn && (
