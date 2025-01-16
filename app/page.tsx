@@ -212,38 +212,40 @@ export default function Home() {
                               transition={{ delay: 0.1 * index }}
                               className="mb-6 last:mb-0"
                             >
-                              <div className="flex justify-between items-start">
-                                <div className="flex-1">
+                              <div className="space-y-2">
+                                <div className="flex justify-between items-start">
                                   <h3 className="text-lg font-semibold text-gray-800">
                                     {item.name}
                                   </h3>
-                                  <a 
-                                    href={`https://www.google.com/search?q=${encodeURIComponent(item.nameZh)}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-lg font-noto-sans-sc text-orange-600 mt-1 hover:text-orange-700 hover:underline"
-                                  >
-                                    {item.nameZh}
-                                  </a>
-                                  {(item.descriptionEn || item.descriptionZh) && (
-                                    <div className="mt-2 text-sm">
-                                      {item.descriptionEn && (
-                                        <p className="text-gray-600 italic">
-                                          {item.descriptionEn}
-                                        </p>
-                                      )}
-                                      {item.descriptionZh && (
-                                        <p className="font-noto-sans-sc text-gray-600 mt-1">
-                                          {item.descriptionZh}
-                                        </p>
-                                      )}
-                                    </div>
+                                  {item.price && /^\$\d+(\.\d{2})?$/.test(item.price) && (
+                                    <span className="text-lg font-mono text-green-600 ml-4">
+                                      {item.price}
+                                    </span>
                                   )}
                                 </div>
-                                {item.price && (
-                                  <span className="text-lg font-mono text-green-600 ml-4">
-                                    {item.price}
-                                  </span>
+                                
+                                <a 
+                                  href={`https://www.google.com/search?q=${encodeURIComponent(item.nameZh)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-lg font-noto-sans-sc text-orange-600 block hover:text-orange-700 hover:underline"
+                                >
+                                  {item.nameZh}
+                                </a>
+
+                                {(item.descriptionEn || item.descriptionZh) && (
+                                  <div className="text-sm">
+                                    {item.descriptionEn && (
+                                      <p className="text-gray-600 italic">
+                                        {item.descriptionEn}
+                                      </p>
+                                    )}
+                                    {item.descriptionZh && (
+                                      <p className="font-noto-sans-sc text-gray-600 mt-1">
+                                        {item.descriptionZh}
+                                      </p>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                               <div className="mt-2 h-px bg-orange-100" />
